@@ -1,27 +1,28 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { auth } from "@clerk/nextjs/server"
-import { neon } from "@neondatabase/serverless"
+import { type NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { neon } from "@neondatabase/serverless";
 
-const sql = neon(process.env.DATABASE_URL!)
+const sql = neon(process.env.DATABASE_URL!);
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = auth()
+    const { userId } = await auth();
 
     if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json()
-    const { studentData, assessment, generatedReport, reportSettings } = body
+    const body = await request.json();
+    const { studentData, assessment, generatedReport, reportSettings } = body;
 
     // Get user from database
     const user = await sql`
-      SELECT id FROM users WHERE clerk_id = ${userId}
-    `
+  SELECT * FROM users WHERE clerk_id = ${userId}
+`;
+    console.log("user", userId);
 
     if (user.length === 0) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Save report to database
@@ -55,33 +56,36 @@ export async function POST(request: NextRequest) {
         ${JSON.stringify(reportSettings)}
       )
       RETURNING id, created_at
-    `
+    `;
 
     return NextResponse.json({
       id: savedReport[0].id,
       createdAt: savedReport[0].created_at,
-    })
+    });
   } catch (error) {
-    console.error("Error saving report:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Error saving report:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = auth()
+    const { userId } = await auth();
 
     if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Get user from database
     const user = await sql`
       SELECT id FROM users WHERE clerk_id = ${userId}
-    `
+    `;
 
     if (user.length === 0) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Get user's reports
@@ -96,11 +100,14 @@ export async function GET(request: NextRequest) {
       WHERE user_id = ${user[0].id}
       ORDER BY created_at DESC
       LIMIT 50
-    `
+    `;
 
-    return NextResponse.json(reports)
+    return NextResponse.json(reports);
   } catch (error) {
-    console.error("Error fetching reports:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Error fetching reports:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

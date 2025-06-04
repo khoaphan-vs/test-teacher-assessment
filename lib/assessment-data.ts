@@ -1,4 +1,12 @@
-export const assessmentData = {
+export type AssessmentCategory = string[];
+
+export type AssessmentData = {
+  [mainCategory: string]: {
+    [subCategory: string]: AssessmentCategory;
+  };
+};
+
+export const assessmentData: AssessmentData = {
   Arbeitshaltung: {
     Motivation: [
       "zeigt eine erfreuliche Motivation und bringt sich engagiert in die Arbeit ein.",
@@ -259,4 +267,4 @@ export const assessmentData = {
       "erreicht die Lernziele in Mathematik bisher nur selten.",
     ],
   },
-}
+};
