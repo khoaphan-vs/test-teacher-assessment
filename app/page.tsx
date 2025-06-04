@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useUser, UserButton } from "@clerk/nextjs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { StudentDataForm } from "@/components/student-data-form"
 import { AssessmentForm } from "@/components/assessment-form"
 import { ReportGenerator } from "@/components/report-generator"
+import { AuthScreen } from "@/components/auth-screen"
 import { BookOpen, FileText, Settings, Users } from "lucide-react"
 
 export type StudentData = {
@@ -24,10 +26,66 @@ export type Assessment = {
   }
 }
 
+export type User = {
+  id: string
+  email: string
+  name: string
+  school?: string
+}
+
+export type UserProfile = {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  school?: string
+  role: "teacher" | "admin"
+  createdAt: string
+}
+
 export default function HomePage() {
+  const { isSignedIn, user, isLoaded } = useUser()
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [currentStep, setCurrentStep] = useState<"data" | "assessment" | "report">("data")
   const [studentData, setStudentData] = useState<StudentData | null>(null)
   const [assessment, setAssessment] = useState<Assessment>({})
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false)
+
+  // Create or fetch user profile when user signs in
+  useEffect(() => {
+    if (isSignedIn && user && !userProfile) {
+      createOrFetchUserProfile()
+    }
+  }, [isSignedIn, user])
+
+  const createOrFetchUserProfile = async () => {
+    if (!user) return
+
+    setIsLoadingProfile(true)
+    try {
+      const response = await fetch("/api/user/profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          clerkId: user.id,
+          email: user.emailAddresses[0]?.emailAddress,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        }),
+      })
+
+      if (response.ok) {
+        const profile = await response.json()
+        setUserProfile(profile)
+      }
+    } catch (error) {
+      console.error("Error creating/fetching user profile:", error)
+    } finally {
+      setIsLoadingProfile(false)
+    }
+  }
 
   const handleStudentDataSubmit = (data: StudentData) => {
     setStudentData(data)
@@ -45,14 +103,55 @@ export default function HomePage() {
     setAssessment({})
   }
 
+  // Show loading while Clerk is initializing
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <BookOpen className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-pulse" />
+          <p className="text-gray-600">Lernbericht Generator wird geladen...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show authentication screen if not signed in
+  if (!isSignedIn) {
+    return <AuthScreen />
+  }
+
+  // Show loading while creating/fetching user profile
+  if (isLoadingProfile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <BookOpen className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-pulse" />
+          <p className="text-gray-600">Benutzerprofil wird eingerichtet...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
+        {/* Header with User Info */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <BookOpen className="h-8 w-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Lernbericht Generator</h1>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-8 w-8 text-blue-600" />
+              <h1 className="text-3xl font-bold text-gray-900">Lernbericht Generator</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-sm text-gray-600">Angemeldet als</p>
+                <p className="font-medium text-gray-900">
+                  {user?.firstName} {user?.lastName}
+                </p>
+                {userProfile?.school && <p className="text-xs text-gray-500">{userProfile.school}</p>}
+              </div>
+              <UserButton afterSignOutUrl="/" />
+            </div>
           </div>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Erstellen Sie schnell und qualitativ hochwertige individualisierte Lernberichte mit Hilfe von KI-gestützter
